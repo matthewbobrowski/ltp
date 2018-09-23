@@ -53,6 +53,7 @@
 static struct fanotify_mark_type fanotify_mark_types[] = {
 	INIT_FANOTIFY_MARK_TYPE(INODE),
 	INIT_FANOTIFY_MARK_TYPE(MOUNT),
+	INIT_FANOTIFY_MARK_TYPE(FILESYSTEM),
 };
 #define NUM_MARK_TYPES ARRAY_SIZE(fanotify_mark_types)
 
@@ -75,6 +76,11 @@ static void test_fanotify(unsigned int n)
 	if (fanotify_mark(fd_notify[n], FAN_MARK_ADD | mark->flag,
 			  FAN_ACCESS | FAN_MODIFY | FAN_CLOSE | FAN_OPEN,
 			  AT_FDCWD, fname) < 0) {
+		if (errno == EINVAL && mark->flag == FAN_MARK_FILESYSTEM) {
+			tst_res(TCONF,
+				"FAN_MARK_FILESYSTEM not supported in kernel?");
+			return;
+		}
 		tst_brk(TBROK | TERRNO,
 			"fanotify_mark (%d, FAN_MARK_ADD, FAN_ACCESS | %s | "
 			"FAN_MODIFY | FAN_CLOSE | FAN_OPEN, AT_FDCWD, %s) "
