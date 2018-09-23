@@ -23,7 +23,8 @@
  * Started by Amir Goldstein <amir73il@gmail.com>
  *
  * DESCRIPTION
- *     Check that fanotify dentry events work
+ *     Check that fanotify dentry events work with an unprivileged
+ *     fanotify listener
  */
 #define _GNU_SOURCE
 #include "config.h"
@@ -43,20 +44,6 @@
 #include <sys/fanotify.h>
 #include <sys/inotify.h>
 
-#ifndef IN_MOVE_SELF
-#define IN_MOVE_SELF            0x00000800
-#endif
-
-#ifndef FAN_EVENT_ON_SB
-#define FAN_EVENT_ON_SB         0x01000000
-
-#define FAN_EVENT_INFO_PARENT   0x100
-#define FAN_EVENT_INFO_NAME     0x200
-#define FAN_EVENT_INFO_FH       0x400
-#endif
-#define FAN_EVENT_INFO \
-	(FAN_EVENT_INFO_PARENT | FAN_EVENT_INFO_NAME)
-
 
 #define EVENT_MAX 1024
 /* size of the event structure, not counting name */
@@ -65,7 +52,7 @@
 #define EVENT_BUF_LEN        (EVENT_MAX * EVENT_SIZE)
 
 #define BUF_SIZE 256
-#define TST_TOTAL 10
+#define TST_TOTAL 9
 
 static char fname1[BUF_SIZE], fname2[BUF_SIZE];
 static char dname1[BUF_SIZE], dname2[BUF_SIZE];
@@ -84,7 +71,6 @@ static char event_buf[EVENT_BUF_LEN];
 #define FILE_NAME1 "test_file1"
 #define FILE_NAME2 "test_file2"
 #define MOUNT_NAME "mntpoint"
-static int mount_created;
 
 void test01(void)
 {
@@ -94,41 +80,32 @@ void test01(void)
 	int tst_count = 0;
 
 	if (fanotify_mark(fd_notify, FAN_MARK_ADD,
-			    IN_ATTRIB | IN_CREATE | IN_DELETE |
-			    IN_MOVED_FROM | IN_MOVED_TO |
-			    FAN_EVENT_ON_SB | FAN_ONDIR, AT_FDCWD,
-			  MOUNT_NAME) < 0) {
+			  IN_ATTRIB | IN_CREATE | IN_DELETE |
+			  IN_MOVED_FROM | IN_MOVED_TO |
+			  FAN_ONDIR, AT_FDCWD,
+			  dname1) < 0) {
 		tst_brk(TBROK | TERRNO,
-		    "fanotify_mark (%d, FAN_MARK_ADD, "
-		    "IN_ATTRIB | IN_CREATE | IN_DELETE | "
-		    "IN_MOVED_FROM | IN_MOVED_TO | IN_MOVE_SELF | "
-		    "FAN_EVENT_ON_SB | FAN_ONDIR, "
-		    "AT_FDCWD, '"MOUNT_NAME"') "
-		    "failed", fd_notify);
+			"fanotify_mark (%d, FAN_MARK_ADD, "
+			"IN_ATTRIB | IN_CREATE | IN_DELETE | "
+			"IN_MOVED_FROM | IN_MOVED_TO | "
+			"FAN_ONDIR, "
+			"AT_FDCWD, %s) "
+			"failed", fd_notify, dname1);
 	}
 
 	/*
 	 * generate sequence of events
 	 */
-	if (mkdir(dname1, 0755) < 0) {
-		tst_brk(TBROK | TERRNO,
-				"mkdir('"DIR_NAME1"', 0755) failed");
-	}
-	event_set[tst_count].mask = IN_ISDIR | IN_CREATE;
-	strcpy(event_set[tst_count].name, DIR_NAME1);
-	tst_count++;
-
 	if ((fd = creat(fname1, 0755)) == -1) {
 		tst_brk(TBROK | TERRNO,
-				"creat(\"%s\", 755) failed", FILE_NAME1);
+			"creat(\"%s\", 755) failed", FILE_NAME1);
 	}
 	event_set[tst_count].mask = IN_CREATE;
 	strcpy(event_set[tst_count].name, FILE_NAME1);
 	tst_count++;
 
 	if (close(fd) == -1) {
-		tst_brk(TBROK | TERRNO,
-				"close(%s) failed", FILE_NAME1);
+		tst_brk(TBROK | TERRNO, "close(%s) failed", FILE_NAME1);
 	}
 
 	/*
@@ -144,7 +121,7 @@ void test01(void)
 
 	if ((fd = chmod(fname1, 0755)) == -1) {
 		tst_brk(TBROK | TERRNO,
-				"chmod(\"%s\", 755) failed", FILE_NAME1);
+			"chmod(\"%s\", 755) failed", FILE_NAME1);
 	}
 	event_set[tst_count].mask = IN_ATTRIB;
 	strcpy(event_set[tst_count].name, FILE_NAME1);
@@ -152,8 +129,7 @@ void test01(void)
 
 	if (rename(fname1, fname2) == -1) {
 		tst_brk(TBROK | TERRNO,
-				"rename(%s, %s) failed",
-				FILE_NAME1, FILE_NAME2);
+			"rename(%s, %s) failed", FILE_NAME1, FILE_NAME2);
 	}
 	event_set[tst_count].mask = IN_MOVED_FROM;
 	strcpy(event_set[tst_count].name, FILE_NAME1);
@@ -164,7 +140,7 @@ void test01(void)
 
 	if (unlink(fname2) == -1) {
 		tst_brk(TBROK | TERRNO,
-				"unlink(%s) failed", FILE_NAME2);
+			"unlink(%s) failed", FILE_NAME2);
 	}
 	event_set[tst_count].mask = IN_DELETE;
 	strcpy(event_set[tst_count].name, FILE_NAME2);
@@ -175,7 +151,7 @@ void test01(void)
 	 */
 	if (chmod(dname1, 0755) < 0) {
 		tst_brk(TBROK | TERRNO,
-				"chmod('"DIR_NAME1"', 0755) failed");
+			"chmod('"DIR_NAME1"', 0755) failed");
 	}
 	event_set[tst_count].mask = IN_ISDIR | IN_ATTRIB;
 	strcpy(event_set[tst_count].name, DIR_NAME1);
@@ -183,8 +159,7 @@ void test01(void)
 
 	if (rename(dname1, dname2) == -1) {
 		tst_brk(TBROK | TERRNO,
-				"rename(%s, %s) failed",
-				DIR_NAME1, DIR_NAME2);
+			"rename(%s, %s) failed", DIR_NAME1, DIR_NAME2);
 	}
 	event_set[tst_count].mask = IN_ISDIR | IN_MOVED_FROM;
 	strcpy(event_set[tst_count].name, DIR_NAME1);
@@ -194,8 +169,7 @@ void test01(void)
 	tst_count++;
 
 	if (rmdir(dname2) == -1) {
-		tst_brk(TBROK | TERRNO,
-				"rmdir(%s) failed", DIR_NAME2);
+		tst_brk(TBROK | TERRNO, "rmdir(%s) failed", DIR_NAME2);
 	}
 	event_set[tst_count].mask = IN_ISDIR | IN_DELETE;
 	strcpy(event_set[tst_count].name, DIR_NAME2);
@@ -205,16 +179,15 @@ void test01(void)
 	 * Cleanup the mark
 	 */
 	if (fanotify_mark(fd_notify, FAN_MARK_FLUSH, 0,
-			    AT_FDCWD, MOUNT_NAME) < 0) {
+			  AT_FDCWD, dname1) < 0) {
 		tst_brk(TBROK | TERRNO,
-		    "fanotify_mark (%d, FAN_MARK_FLUSH, 0,"
-		    "AT_FDCWD, '"MOUNT_NAME"') failed",
-		    fd_notify);
+			"fanotify_mark (%d, FAN_MARK_FLUSH, 0,"
+			"AT_FDCWD, %s) failed",
+			fd_notify, dname1);
 	}
 
 	if (tst_count != TST_TOTAL) {
-		tst_brk(TBROK,
-				"tst_count and TST_TOTAL are not equal");
+		tst_brk(TBROK, "tst_count and TST_TOTAL are not equal");
 	}
 
 	/*
@@ -230,31 +203,31 @@ void test01(void)
 		event = (struct fanotify_event_metadata *)&event_buf[i];
 		if (test_num >= TST_TOTAL) {
 			tst_res(TFAIL,
-				 "get unnecessary event: mask=%llx "
-				 "pid=%u fd=%d",
-				 (unsigned long long)event->mask,
-				 (unsigned)event->pid, event->fd);
+				"get unnecessary event: mask=%llx "
+				"pid=%u fd=%d",
+				(unsigned long long)event->mask,
+				(unsigned)event->pid, event->fd);
 			event->mask = 0;
 		} else if (event->event_len > event->metadata_len) {
 			/* fanotify filename events should not be merged */
 			if (event->mask != event_set[test_num].mask) {
 				tst_res(TFAIL,
-					 "get event: mask=%llx (expected %llx) "
-					 "pid=%u fd=%d name='%s'",
-					 (unsigned long long)event->mask,
-					 event_set[test_num].mask,
-					 (unsigned)event->pid, event->fd,
-					 (char *)(event+1));
+					"get event: mask=%llx (expected %llx) "
+					"pid=%u fd=%d name='%s'",
+					(unsigned long long)event->mask,
+					event_set[test_num].mask,
+					(unsigned)event->pid, event->fd,
+					(char *)(event+1));
 			} else if (strncmp(event_set[test_num].name,
 					(char *)(event+1),
 					event->event_len - event->metadata_len)) {
 				tst_res(TFAIL,
-					 "get event: mask=%llx "
-					 "pid=%u fd=%d name='%s' expected(%s)",
-					 (unsigned long long)event->mask,
-					 (unsigned)event->pid, event->fd,
-					 (char *)(event+1),
-					 event_set[test_num].name);
+					"get event: mask=%llx "
+					"pid=%u fd=%d name='%s' expected(%s)",
+					(unsigned long long)event->mask,
+					(unsigned)event->pid, event->fd,
+					(char *)(event+1),
+					event_set[test_num].name);
 			} else if (event->mask & IN_MOVE) {
 				int fail = 0;
 
@@ -270,44 +243,44 @@ void test01(void)
 				}
 				if (!fail) {
 					tst_res(TPASS,
-						    "get event: mask=%llx cookie=%u fd=%d name='%s'",
-						    (unsigned long long)event->mask,
-						    (unsigned)event->pid, event->fd,
-						    (char *)(event+1));
+						"get event: mask=%llx cookie=%u fd=%d name='%s'",
+						(unsigned long long)event->mask,
+						(unsigned)event->pid, event->fd,
+						(char *)(event+1));
 				} else {
 					tst_res(TFAIL,
-						    "get event: mask=%llx cookie=%u (last=%u) fd=%d name='%s'",
-						    (unsigned long long)event->mask,
-						    (unsigned)event->pid, stored_cookie, event->fd,
-						    (char *)(event+1));
+						"get event: mask=%llx cookie=%u (last=%u) fd=%d name='%s'",
+						(unsigned long long)event->mask,
+						(unsigned)event->pid, stored_cookie, event->fd,
+						(char *)(event+1));
 				}
 			} else {
 				tst_res(TPASS,
-					    "get event: mask=%llx pid=%u fd=%d name='%s'",
-					    (unsigned long long)event->mask,
-					    (unsigned)event->pid, event->fd,
-					    (char *)(event+1));
+					"get event: mask=%llx pid=%u fd=%d name='%s'",
+					(unsigned long long)event->mask,
+					(unsigned)event->pid, event->fd,
+					(char *)(event+1));
 			}
 		} else if (!(event->mask & event_set[test_num].mask)) {
 			tst_res(TFAIL,
-				 "get event: mask=%llx (expected %llx) "
-				 "pid=%u fd=%d",
-				 (unsigned long long)event->mask,
-				 event_set[test_num].mask,
-				 (unsigned)event->pid, event->fd);
+				"get event: mask=%llx (expected %llx) "
+				"pid=%u fd=%d",
+				(unsigned long long)event->mask,
+				event_set[test_num].mask,
+				(unsigned)event->pid, event->fd);
 		} else if (event->pid != getpid()) {
 			tst_res(TFAIL,
-				 "get event: mask=%llx pid=%u "
-				 "(expected %u) fd=%d",
-				 (unsigned long long)event->mask,
-				 (unsigned)event->pid,
-				 (unsigned)getpid(),
-				 event->fd);
+				"get event: mask=%llx pid=%u "
+				"(expected %u) fd=%d",
+				(unsigned long long)event->mask,
+				(unsigned)event->pid,
+				(unsigned)getpid(),
+				event->fd);
 		} else {
 			tst_res(TPASS,
-				    "get event: mask=%llx pid=%u fd=%d",
-				    (unsigned long long)event->mask,
-				    (unsigned)event->pid, event->fd);
+				"get event: mask=%llx pid=%u fd=%d",
+				(unsigned long long)event->mask,
+				(unsigned)event->pid, event->fd);
 		}
 		event->mask &= ~event_set[test_num].mask;
 		/* No events left in current mask? Go for next event */
@@ -319,7 +292,7 @@ void test01(void)
 	}
 	for (; test_num < TST_TOTAL; test_num++) {
 		tst_res(TFAIL, "didn't get event: mask=%llx",
-			 event_set[test_num].mask);
+			event_set[test_num].mask);
 
 	}
 }
@@ -327,24 +300,19 @@ void test01(void)
 static void setup(void)
 {
 	SAFE_MKDIR(MOUNT_NAME, 0755);
-	SAFE_MOUNT(MOUNT_NAME, MOUNT_NAME, "none", MS_BIND, NULL);
-	mount_created = 1;
-
 	sprintf(dname1, "%s/%s", MOUNT_NAME, DIR_NAME1);
 	sprintf(dname2, "%s/%s", MOUNT_NAME, DIR_NAME2);
 	sprintf(fname1, "%s/%s", dname1, FILE_NAME1);
 	sprintf(fname2, "%s/%s", dname1, FILE_NAME2);
-	fd_notify = SAFE_FANOTIFY_INIT(FAN_CLASS_NOTIF | FAN_EVENT_INFO,
-					O_RDONLY);
+	SAFE_MKDIR(dname1, 0755);
+	fd_notify = SAFE_FANOTIFY_INIT(FAN_CLASS_NOTIF | FAN_UNPRIVILEGED,
+				       O_RDONLY);
 }
 
 static void cleanup(void)
 {
 	if (fd_notify > 0)
 		SAFE_CLOSE(fd_notify);
-
-	if (mount_created && tst_umount(MOUNT_NAME) < 0)
-		tst_brk(TBROK | TERRNO, "umount failed");
 }
 
 static struct tst_test test = {
@@ -352,7 +320,6 @@ static struct tst_test test = {
 	.setup = setup,
 	.cleanup = cleanup,
 	.needs_tmpdir = 1,
-	.needs_root = 1
 };
 
 #else

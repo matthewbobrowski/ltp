@@ -60,6 +60,9 @@ static long fanotify_mark(int fd, unsigned int flags, uint64_t mask,
 #ifndef FAN_MARK_FILESYSTEM
 #define FAN_MARK_FILESYSTEM	0x00000100
 #endif
+#ifndef FAN_UNPRIVILEGED
+#define FAN_UNPRIVILEGED	0x00000080
+#endif
 
 struct fanotify_mark_type {
 	unsigned int flag;
