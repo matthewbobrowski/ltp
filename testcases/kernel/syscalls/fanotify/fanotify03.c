@@ -46,6 +46,7 @@ static unsigned long long event_set[EVENT_MAX];
 static unsigned int event_resp[EVENT_MAX];
 
 static char event_buf[EVENT_BUF_LEN];
+static int support_perm_events;
 
 static struct tcase {
 	const char *tname;
@@ -163,6 +164,12 @@ static int setup_mark(unsigned int n)
 				"AT_FDCWD, %s) failed.",
 				fd_notify, mark->name, fname);
 		}
+	} else {
+		/*
+		 * To distigouish between perm event not supported and
+		 * filesystem mark not supported.
+		 */
+		support_perm_events = 1;
 	}
 
 	tst_res(TINFO, "Test #%d: %s", n, tc->tname);
