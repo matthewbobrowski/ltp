@@ -64,12 +64,13 @@ void test01(void)
 
 	int tst_count = 0;
 
-	if (fanotify_mark(fd_notify, FAN_MARK_ADD, FAN_ACCESS | FAN_MODIFY |
-			    FAN_CLOSE | FAN_OPEN, AT_FDCWD, fname) < 0) {
+	if (fanotify_mark(fd_notify, FAN_MARK_ADD,
+			  FAN_ACCESS | FAN_MODIFY | FAN_CLOSE | FAN_OPEN,
+			  AT_FDCWD, fname) < 0) {
 		tst_brk(TBROK | TERRNO,
-		    "fanotify_mark (%d, FAN_MARK_ADD, FAN_ACCESS | "
-		    "FAN_MODIFY | FAN_CLOSE | FAN_OPEN, AT_FDCWD, %s) "
-		    "failed", fd_notify, fname);
+			"fanotify_mark (%d, FAN_MARK_ADD, FAN_ACCESS | "
+			"FAN_MODIFY | FAN_CLOSE | FAN_OPEN, AT_FDCWD, %s) "
+			"failed", fd_notify, fname);
 	}
 
 	/*
@@ -119,12 +120,12 @@ void test01(void)
 
 	/* Ignore access events */
 	if (fanotify_mark(fd_notify,
-			    FAN_MARK_ADD | FAN_MARK_IGNORED_MASK,
-			    FAN_ACCESS, AT_FDCWD, fname) < 0) {
+			  FAN_MARK_ADD | FAN_MARK_IGNORED_MASK,
+			  FAN_ACCESS, AT_FDCWD, fname) < 0) {
 		tst_brk(TBROK | TERRNO,
-		     "fanotify_mark (%d, FAN_MARK_ADD | "
-		     "FAN_MARK_IGNORED_MASK, FAN_ACCESS, "
-		     "AT_FDCWD, %s) failed", fd_notify, fname);
+			"fanotify_mark (%d, FAN_MARK_ADD | "
+			"FAN_MARK_IGNORED_MASK, FAN_ACCESS, AT_FDCWD, %s) "
+			"failed", fd_notify, fname);
 	}
 
 	fd = SAFE_OPEN(fname, O_RDWR);
@@ -168,15 +169,14 @@ void test01(void)
 	 * Now ignore open & close events regardless of file
 	 * modifications
 	 */
-	if (fanotify_mark(fd_notify,
-			    FAN_MARK_ADD | FAN_MARK_IGNORED_MASK | FAN_MARK_IGNORED_SURV_MODIFY,
-			    FAN_OPEN | FAN_CLOSE, AT_FDCWD, fname) < 0) {
+	if (fanotify_mark(fd_notify, FAN_MARK_ADD |
+			  FAN_MARK_IGNORED_MASK | FAN_MARK_IGNORED_SURV_MODIFY,
+			  FAN_OPEN | FAN_CLOSE, AT_FDCWD, fname) < 0) {
 		tst_brk(TBROK | TERRNO,
-		     "fanotify_mark (%d, FAN_MARK_ADD | "
-		     "FAN_MARK_IGNORED_MASK | "
-		     "FAN_MARK_IGNORED_SURV_MODIFY, FAN_OPEN | "
-		     "FAN_CLOSE, AT_FDCWD, %s) failed", fd_notify,
-		     fname);
+			"fanotify_mark (%d, FAN_MARK_ADD | "
+			"FAN_MARK_IGNORED_MASK | FAN_MARK_IGNORED_SURV_MODIFY, "
+			"FAN_OPEN | FAN_CLOSE, AT_FDCWD, %s) failed",
+			fd_notify, fname);
 	}
 
 	/* This event should be ignored */
@@ -199,13 +199,12 @@ void test01(void)
 
 	/* Now remove open and close from ignored mask */
 	if (fanotify_mark(fd_notify,
-			    FAN_MARK_REMOVE | FAN_MARK_IGNORED_MASK,
-			    FAN_OPEN | FAN_CLOSE, AT_FDCWD, fname) < 0) {
+			  FAN_MARK_REMOVE | FAN_MARK_IGNORED_MASK,
+			  FAN_OPEN | FAN_CLOSE, AT_FDCWD, fname) < 0) {
 		tst_brk(TBROK | TERRNO,
-		     "fanotify_mark (%d, FAN_MARK_REMOVE | "
-		     "FAN_MARK_IGNORED_MASK, FAN_OPEN | "
-		     "FAN_CLOSE, AT_FDCWD, %s) failed", fd_notify,
-		     fname);
+			"fanotify_mark (%d, FAN_MARK_REMOVE | "
+			"FAN_MARK_IGNORED_MASK, FAN_OPEN | FAN_CLOSE, "
+			"AT_FDCWD, %s) failed", fd_notify, fname);
 	}
 
 	SAFE_CLOSE(fd);
@@ -219,8 +218,8 @@ void test01(void)
 
 	if (TST_TOTAL != tst_count) {
 		tst_brk(TBROK,
-			 "TST_TOTAL (%d) and tst_count (%d) are not "
-			 "equal", TST_TOTAL, tst_count);
+			"TST_TOTAL (%d) and tst_count (%d) are not "
+			"equal", TST_TOTAL, tst_count);
 	}
 	tst_count = 0;
 
@@ -233,51 +232,51 @@ void test01(void)
 		event = (struct fanotify_event_metadata *)&event_buf[i];
 		if (test_num >= TST_TOTAL) {
 			tst_res(TFAIL,
-				 "get unnecessary event: mask=%llx "
-				 "pid=%u fd=%u",
-				 (unsigned long long)event->mask,
-				 (unsigned)event->pid, event->fd);
+				"get unnecessary event: mask=%llx "
+				"pid=%u fd=%u",
+				(unsigned long long)event->mask,
+				(unsigned)event->pid, event->fd);
 		} else if (!(event->mask & event_set[test_num])) {
 			tst_res(TFAIL,
-				 "get event: mask=%llx (expected %llx) "
-				 "pid=%u fd=%u",
-				 (unsigned long long)event->mask,
-				 event_set[test_num],
-				 (unsigned)event->pid, event->fd);
+				"get event: mask=%llx (expected %llx) "
+				"pid=%u fd=%u",
+				(unsigned long long)event->mask,
+				event_set[test_num],
+				(unsigned)event->pid, event->fd);
 		} else if (event->pid != getpid()) {
 			tst_res(TFAIL,
-				 "get event: mask=%llx pid=%u "
-				 "(expected %u) fd=%u",
-				 (unsigned long long)event->mask,
-				 (unsigned)event->pid,
-				 (unsigned)getpid(),
-				 event->fd);
+				"get event: mask=%llx pid=%u "
+				"(expected %u) fd=%u",
+				(unsigned long long)event->mask,
+				(unsigned)event->pid,
+				(unsigned)getpid(),
+				event->fd);
 		} else {
 			if (event->fd == -2)
 				goto pass;
 			ret = read(event->fd, buf, BUF_SIZE);
 			if (ret != (int)strlen(fname)) {
 				tst_res(TFAIL,
-					 "cannot read from returned fd "
-					 "of event: mask=%llx pid=%u "
-					 "fd=%u ret=%d (errno=%d)",
-					 (unsigned long long)event->mask,
-					 (unsigned)event->pid,
-					 event->fd, ret, errno);
+					"cannot read from returned fd "
+					"of event: mask=%llx pid=%u "
+					"fd=%u ret=%d (errno=%d)",
+					(unsigned long long)event->mask,
+					(unsigned)event->pid,
+					event->fd, ret, errno);
 			} else if (memcmp(buf, fname, strlen(fname))) {
 				tst_res(TFAIL,
-					 "wrong data read from returned fd "
-					 "of event: mask=%llx pid=%u "
-					 "fd=%u",
-					 (unsigned long long)event->mask,
-					 (unsigned)event->pid,
-					 event->fd);
+					"wrong data read from returned fd "
+					"of event: mask=%llx pid=%u "
+					"fd=%u",
+					(unsigned long long)event->mask,
+					(unsigned)event->pid,
+					event->fd);
 			} else {
 pass:
 				tst_res(TPASS,
-				    "get event: mask=%llx pid=%u fd=%u",
-				    (unsigned long long)event->mask,
-				    (unsigned)event->pid, event->fd);
+					"get event: mask=%llx pid=%u fd=%u",
+					(unsigned long long)event->mask,
+					(unsigned)event->pid, event->fd);
 			}
 		}
 		/*
@@ -297,16 +296,17 @@ pass:
 	}
 	for (; test_num < TST_TOTAL; test_num++) {
 		tst_res(TFAIL, "didn't get event: mask=%llx",
-			 event_set[test_num]);
+			event_set[test_num]);
 
 	}
 	/* Remove mark to clear FAN_MARK_IGNORED_SURV_MODIFY */
-	if (fanotify_mark(fd_notify, FAN_MARK_REMOVE, FAN_ACCESS | FAN_MODIFY |
-			    FAN_CLOSE | FAN_OPEN, AT_FDCWD, fname) < 0) {
+	if (fanotify_mark(fd_notify, FAN_MARK_REMOVE,
+			  FAN_ACCESS | FAN_MODIFY | FAN_CLOSE | FAN_OPEN,
+			  AT_FDCWD, fname) < 0) {
 		tst_brk(TBROK | TERRNO,
-		    "fanotify_mark (%d, FAN_MARK_REMOVE, FAN_ACCESS | "
-		    "FAN_MODIFY | FAN_CLOSE | FAN_OPEN, AT_FDCWD, %s) "
-		    "failed", fd_notify, fname);
+			"fanotify_mark (%d, FAN_MARK_REMOVE, FAN_ACCESS | "
+			"FAN_MODIFY | FAN_CLOSE | FAN_OPEN, AT_FDCWD, %s) "
+			"failed", fd_notify, fname);
 	}
 }
 
