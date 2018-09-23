@@ -50,27 +50,35 @@
 #define BUF_SIZE 256
 #define TST_TOTAL 12
 
+static struct fanotify_mark_type fanotify_mark_types[] = {
+	INIT_FANOTIFY_MARK_TYPE(INODE),
+	INIT_FANOTIFY_MARK_TYPE(MOUNT),
+};
+#define NUM_MARK_TYPES ARRAY_SIZE(fanotify_mark_types)
+
 static char fname[BUF_SIZE];
 static char buf[BUF_SIZE];
-static int fd, fd_notify;
+static int fd_notify[NUM_MARK_TYPES];
 
 static unsigned long long event_set[EVENT_MAX];
 
 static char event_buf[EVENT_BUF_LEN];
 
-void test01(void)
+static void test_fanotify(unsigned int n)
 {
-	int ret, len, i = 0, test_num = 0;
-
+	struct fanotify_mark_type *mark = &fanotify_mark_types[n];
+	int fd, ret, len, i = 0, test_num = 0;
 	int tst_count = 0;
 
-	if (fanotify_mark(fd_notify, FAN_MARK_ADD,
+	tst_res(TINFO, "Test #%d: %s events", n, mark->name);
+
+	if (fanotify_mark(fd_notify[n], FAN_MARK_ADD | mark->flag,
 			  FAN_ACCESS | FAN_MODIFY | FAN_CLOSE | FAN_OPEN,
 			  AT_FDCWD, fname) < 0) {
 		tst_brk(TBROK | TERRNO,
-			"fanotify_mark (%d, FAN_MARK_ADD, FAN_ACCESS | "
+			"fanotify_mark (%d, FAN_MARK_ADD, FAN_ACCESS | %s | "
 			"FAN_MODIFY | FAN_CLOSE | FAN_OPEN, AT_FDCWD, %s) "
-			"failed", fd_notify, fname);
+			"failed", fd_notify[n], mark->name, fname);
 	}
 
 	/*
@@ -92,7 +100,7 @@ void test01(void)
 	 * Get list of events so far. We get events here to avoid
 	 * merging of following events with the previous ones.
 	 */
-	ret = SAFE_READ(0, fd_notify, event_buf, EVENT_BUF_LEN);
+	ret = SAFE_READ(0, fd_notify[n], event_buf, EVENT_BUF_LEN);
 	len = ret;
 
 	fd = SAFE_OPEN(fname, O_RDWR | O_CREAT, 0700);
@@ -110,7 +118,7 @@ void test01(void)
 	/*
 	 * get another list of events
 	 */
-	ret = SAFE_READ(0, fd_notify, event_buf + len,
+	ret = SAFE_READ(0, fd_notify[n], event_buf + len,
 			EVENT_BUF_LEN - len);
 	len += ret;
 
@@ -119,13 +127,13 @@ void test01(void)
 	 */
 
 	/* Ignore access events */
-	if (fanotify_mark(fd_notify,
-			  FAN_MARK_ADD | FAN_MARK_IGNORED_MASK,
+	if (fanotify_mark(fd_notify[n],
+			  FAN_MARK_ADD | mark->flag | FAN_MARK_IGNORED_MASK,
 			  FAN_ACCESS, AT_FDCWD, fname) < 0) {
 		tst_brk(TBROK | TERRNO,
-			"fanotify_mark (%d, FAN_MARK_ADD | "
+			"fanotify_mark (%d, FAN_MARK_ADD | %s | "
 			"FAN_MARK_IGNORED_MASK, FAN_ACCESS, AT_FDCWD, %s) "
-			"failed", fd_notify, fname);
+			"failed", fd_notify[n], mark->name, fname);
 	}
 
 	fd = SAFE_OPEN(fname, O_RDWR);
@@ -138,7 +146,7 @@ void test01(void)
 	/*
 	 * get another list of events to verify the last one got ignored
 	 */
-	ret = SAFE_READ(0, fd_notify, event_buf + len,
+	ret = SAFE_READ(0, fd_notify[n], event_buf + len,
 			EVENT_BUF_LEN - len);
 	len += ret;
 
@@ -161,7 +169,7 @@ void test01(void)
 	tst_count++;
 
 	/* Read events to verify previous access was properly generated */
-	ret = SAFE_READ(0, fd_notify, event_buf + len,
+	ret = SAFE_READ(0, fd_notify[n], event_buf + len,
 			EVENT_BUF_LEN - len);
 	len += ret;
 
@@ -169,14 +177,14 @@ void test01(void)
 	 * Now ignore open & close events regardless of file
 	 * modifications
 	 */
-	if (fanotify_mark(fd_notify, FAN_MARK_ADD |
+	if (fanotify_mark(fd_notify[n], FAN_MARK_ADD | mark->flag |
 			  FAN_MARK_IGNORED_MASK | FAN_MARK_IGNORED_SURV_MODIFY,
 			  FAN_OPEN | FAN_CLOSE, AT_FDCWD, fname) < 0) {
 		tst_brk(TBROK | TERRNO,
-			"fanotify_mark (%d, FAN_MARK_ADD | "
+			"fanotify_mark (%d, FAN_MARK_ADD | %s | "
 			"FAN_MARK_IGNORED_MASK | FAN_MARK_IGNORED_SURV_MODIFY, "
 			"FAN_OPEN | FAN_CLOSE, AT_FDCWD, %s) failed",
-			fd_notify, fname);
+			fd_notify[n], mark->name, fname);
 	}
 
 	/* This event should be ignored */
@@ -193,18 +201,19 @@ void test01(void)
 	fd = SAFE_OPEN(fname, O_RDWR);
 
 	/* Read events to verify open & close were ignored */
-	ret = SAFE_READ(0, fd_notify, event_buf + len,
+	ret = SAFE_READ(0, fd_notify[n], event_buf + len,
 			EVENT_BUF_LEN - len);
 	len += ret;
 
 	/* Now remove open and close from ignored mask */
-	if (fanotify_mark(fd_notify,
-			  FAN_MARK_REMOVE | FAN_MARK_IGNORED_MASK,
+	if (fanotify_mark(fd_notify[n],
+			  FAN_MARK_REMOVE | mark->flag | FAN_MARK_IGNORED_MASK,
 			  FAN_OPEN | FAN_CLOSE, AT_FDCWD, fname) < 0) {
 		tst_brk(TBROK | TERRNO,
-			"fanotify_mark (%d, FAN_MARK_REMOVE | "
+			"fanotify_mark (%d, FAN_MARK_REMOVE | %s | "
 			"FAN_MARK_IGNORED_MASK, FAN_OPEN | FAN_CLOSE, "
-			"AT_FDCWD, %s) failed", fd_notify, fname);
+			"AT_FDCWD, %s) failed", fd_notify[n],
+			mark->name, fname);
 	}
 
 	SAFE_CLOSE(fd);
@@ -212,7 +221,7 @@ void test01(void)
 	tst_count++;
 
 	/* Read events to verify close was generated */
-	ret = SAFE_READ(0, fd_notify, event_buf + len,
+	ret = SAFE_READ(0, fd_notify[n], event_buf + len,
 			EVENT_BUF_LEN - len);
 	len += ret;
 
@@ -300,32 +309,41 @@ pass:
 
 	}
 	/* Remove mark to clear FAN_MARK_IGNORED_SURV_MODIFY */
-	if (fanotify_mark(fd_notify, FAN_MARK_REMOVE,
+	if (fanotify_mark(fd_notify[n], FAN_MARK_REMOVE | mark->flag,
 			  FAN_ACCESS | FAN_MODIFY | FAN_CLOSE | FAN_OPEN,
 			  AT_FDCWD, fname) < 0) {
 		tst_brk(TBROK | TERRNO,
-			"fanotify_mark (%d, FAN_MARK_REMOVE, FAN_ACCESS | "
+			"fanotify_mark (%d, FAN_MARK_REMOVE | %s, FAN_ACCESS | "
 			"FAN_MODIFY | FAN_CLOSE | FAN_OPEN, AT_FDCWD, %s) "
-			"failed", fd_notify, fname);
+			"failed", fd_notify[n], mark->name, fname);
 	}
 }
 
 static void setup(void)
 {
+	unsigned int i;
+
 	sprintf(fname, "tfile_%d", getpid());
 	SAFE_FILE_PRINTF(fname, "1");
 
-	fd_notify = SAFE_FANOTIFY_INIT(FAN_CLASS_NOTIF, O_RDONLY);
+	for (i = 0; i < NUM_MARK_TYPES; i++) {
+		fd_notify[i] = SAFE_FANOTIFY_INIT(FAN_CLASS_NOTIF, O_RDONLY);
+	}
 }
 
 static void cleanup(void)
 {
-	if (fd_notify > 0)
-		SAFE_CLOSE(fd_notify);
+	unsigned int i;
+
+	for (i = 0; i < NUM_MARK_TYPES; i++) {
+		if (fd_notify[i] > 0)
+			SAFE_CLOSE(fd_notify[i]);
+	}
 }
 
 static struct tst_test test = {
-	.test_all = test01,
+	.test = test_fanotify,
+	.tcnt = NUM_MARK_TYPES,
 	.setup = setup,
 	.cleanup = cleanup,
 	.needs_tmpdir = 1,
