@@ -71,11 +71,11 @@ void test01(void)
 		if (len < 0) {
 			if (errno == -EAGAIN) {
 				tst_res(TFAIL, "Overflow event not "
-					 "generated!\n");
+					"generated!\n");
 				break;
 			}
 			tst_brk(TBROK | TERRNO,
-				 "read of notification event failed");
+				"read of notification event failed");
 			break;
 		}
 		if (event.fd != FAN_NOFD)
@@ -87,27 +87,27 @@ void test01(void)
 		if (event.mask != FAN_OPEN &&
 		    event.mask != FAN_Q_OVERFLOW) {
 			tst_res(TFAIL,
-				 "get event: mask=%llx (expected %llx)"
-				 "pid=%u fd=%d",
-				 (unsigned long long)event.mask,
-				 (unsigned long long)FAN_OPEN,
-				 (unsigned)event.pid, event.fd);
+				"get event: mask=%llx (expected %llx)"
+				"pid=%u fd=%d",
+				(unsigned long long)event.mask,
+				(unsigned long long)FAN_OPEN,
+				(unsigned)event.pid, event.fd);
 			break;
 		}
 		if (event.mask == FAN_Q_OVERFLOW) {
 			if (event.fd != FAN_NOFD) {
 				tst_res(TFAIL,
-					 "invalid overflow event: "
-					 "mask=%llx pid=%u fd=%d",
-					 (unsigned long long)event.mask,
-					 (unsigned)event.pid,
-					 event.fd);
+					"invalid overflow event: "
+					"mask=%llx pid=%u fd=%d",
+					(unsigned long long)event.mask,
+					(unsigned)event.pid,
+					event.fd);
 				break;
 			}
 			tst_res(TPASS,
-				 "get event: mask=%llx pid=%u fd=%d",
-				 (unsigned long long)event.mask,
-				 (unsigned)event.pid, event.fd);
+				"get event: mask=%llx pid=%u fd=%d",
+				(unsigned long long)event.mask,
+				(unsigned)event.pid, event.fd);
 				break;
 		}
 	}
@@ -119,11 +119,11 @@ static void setup(void)
 			O_RDONLY);
 
 	if (fanotify_mark(fd_notify, FAN_MARK_MOUNT | FAN_MARK_ADD, FAN_OPEN,
-			    AT_FDCWD, ".") < 0) {
+			  AT_FDCWD, ".") < 0) {
 		tst_brk(TBROK | TERRNO,
-			 "fanotify_mark (%d, FAN_MARK_MOUNT | FAN_MARK_ADD, "
-			 "FAN_OPEN, AT_FDCWD, \".\") failed",
-			 fd_notify);
+			"fanotify_mark (%d, FAN_MARK_MOUNT | FAN_MARK_ADD, "
+			"FAN_OPEN, AT_FDCWD, \".\") failed",
+			fd_notify);
 	}
 }
 
