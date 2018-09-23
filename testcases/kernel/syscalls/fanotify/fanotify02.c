@@ -65,14 +65,14 @@ void test01(void)
 	int tst_count = 0;
 
 	if (fanotify_mark(fd_notify, FAN_MARK_ADD, FAN_ACCESS |
-			    FAN_MODIFY | FAN_CLOSE | FAN_OPEN |
-			    FAN_EVENT_ON_CHILD | FAN_ONDIR, AT_FDCWD,
+			  FAN_MODIFY | FAN_CLOSE | FAN_OPEN |
+			  FAN_EVENT_ON_CHILD | FAN_ONDIR, AT_FDCWD,
 			  ".") < 0) {
 		tst_brk(TBROK | TERRNO,
-		    "fanotify_mark (%d, FAN_MARK_ADD, FAN_ACCESS | "
-		    "FAN_MODIFY | FAN_CLOSE | FAN_OPEN | "
-		    "FAN_EVENT_ON_CHILD | FAN_ONDIR, AT_FDCWD, '.') "
-		    "failed", fd_notify);
+			"fanotify_mark (%d, FAN_MARK_ADD, FAN_ACCESS | "
+			"FAN_MODIFY | FAN_CLOSE | FAN_OPEN | "
+			"FAN_EVENT_ON_CHILD | FAN_ONDIR, AT_FDCWD, '.') "
+			"failed", fd_notify);
 	}
 
 	/*
@@ -121,11 +121,11 @@ void test01(void)
 	 * now remove child mark
 	 */
 	if (fanotify_mark(fd_notify, FAN_MARK_REMOVE,
-			    FAN_EVENT_ON_CHILD, AT_FDCWD, ".") < 0) {
+			  FAN_EVENT_ON_CHILD, AT_FDCWD, ".") < 0) {
 		tst_brk(TBROK | TERRNO,
-		    "fanotify_mark (%d, FAN_MARK REMOVE, "
-		    "FAN_EVENT_ON_CHILD, AT_FDCWD, '.') failed",
-		    fd_notify);
+			"fanotify_mark (%d, FAN_MARK REMOVE, "
+			"FAN_EVENT_ON_CHILD, AT_FDCWD, '.') failed",
+			fd_notify);
 	}
 
 	/*
@@ -152,7 +152,7 @@ void test01(void)
 
 	if (TST_TOTAL != tst_count) {
 		tst_brk(TBROK,
-			 "TST_TOTAL and tst_count are not equal");
+			"TST_TOTAL and tst_count are not equal");
 	}
 	tst_count = 0;
 
@@ -165,30 +165,30 @@ void test01(void)
 		event = (struct fanotify_event_metadata *)&event_buf[i];
 		if (test_num >= TST_TOTAL) {
 			tst_res(TFAIL,
-				 "get unnecessary event: mask=%llx "
-				 "pid=%u fd=%u",
-				 (unsigned long long)event->mask,
-				 (unsigned)event->pid, event->fd);
+				"get unnecessary event: mask=%llx "
+				"pid=%u fd=%u",
+				(unsigned long long)event->mask,
+				(unsigned)event->pid, event->fd);
 		} else if (!(event->mask & event_set[test_num])) {
 			tst_res(TFAIL,
-				 "get event: mask=%llx (expected %llx) "
-				 "pid=%u fd=%u",
-				 (unsigned long long)event->mask,
-				 event_set[test_num],
-				 (unsigned)event->pid, event->fd);
+				"get event: mask=%llx (expected %llx) "
+				"pid=%u fd=%u",
+				(unsigned long long)event->mask,
+				event_set[test_num],
+				(unsigned)event->pid, event->fd);
 		} else if (event->pid != getpid()) {
 			tst_res(TFAIL,
-				 "get event: mask=%llx pid=%u "
-				 "(expected %u) fd=%u",
-				 (unsigned long long)event->mask,
-				 (unsigned)event->pid,
-				 (unsigned)getpid(),
-				 event->fd);
+				"get event: mask=%llx pid=%u "
+				"(expected %u) fd=%u",
+				(unsigned long long)event->mask,
+				(unsigned)event->pid,
+				(unsigned)getpid(),
+				event->fd);
 		} else {
 			tst_res(TPASS,
-				    "get event: mask=%llx pid=%u fd=%u",
-				    (unsigned long long)event->mask,
-				    (unsigned)event->pid, event->fd);
+				"get event: mask=%llx pid=%u fd=%u",
+				(unsigned long long)event->mask,
+				(unsigned)event->pid, event->fd);
 		}
 		event->mask &= ~event_set[test_num];
 		/* No events left in current mask? Go for next event */
@@ -201,7 +201,7 @@ void test01(void)
 	}
 	for (; test_num < TST_TOTAL; test_num++) {
 		tst_res(TFAIL, "didn't get event: mask=%llx",
-			 event_set[test_num]);
+			event_set[test_num]);
 
 	}
 }
