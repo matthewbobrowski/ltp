@@ -106,7 +106,7 @@ static void run_child(void)
 
 	if (sigaction(SIGCHLD, &child_action, NULL) < 0) {
 		tst_brk(TBROK | TERRNO,
-			 "sigaction(SIGCHLD, &child_action, NULL) failed");
+			"sigaction(SIGCHLD, &child_action, NULL) failed");
 	}
 
 	child_pid = SAFE_FORK();
@@ -128,7 +128,7 @@ static void check_child(void)
 	child_action.sa_flags = SA_NOCLDSTOP;
 	if (sigaction(SIGCHLD, &child_action, NULL) < 0) {
 		tst_brk(TBROK | TERRNO,
-			 "sigaction(SIGCHLD, &child_action, NULL) failed");
+			"sigaction(SIGCHLD, &child_action, NULL) failed");
 	}
 	SAFE_WAITPID(-1, &child_ret, 0);
 
@@ -177,7 +177,7 @@ void test01(void)
 	/* tst_count + 1 is for checking child return value */
 	if (TST_TOTAL != tst_count + 1) {
 		tst_brk(TBROK,
-			 "TST_TOTAL and tst_count do not match");
+			"TST_TOTAL and tst_count do not match");
 	}
 	tst_count = 0;
 
@@ -195,8 +195,8 @@ void test01(void)
 				break;
 			if (ret < 0) {
 				tst_brk(TBROK,
-					 "read(%d, buf, %zu) failed",
-					 fd_notify, EVENT_BUF_LEN);
+					"read(%d, buf, %zu) failed",
+					fd_notify, EVENT_BUF_LEN);
 			}
 			len += ret;
 		}
@@ -204,24 +204,24 @@ void test01(void)
 		event = (struct fanotify_event_metadata *)&event_buf[i];
 		if (!(event->mask & event_set[test_num])) {
 			tst_res(TFAIL,
-				 "get event: mask=%llx (expected %llx) "
-				 "pid=%u fd=%u",
-				 (unsigned long long)event->mask,
-				 event_set[test_num],
-				 (unsigned)event->pid, event->fd);
+				"get event: mask=%llx (expected %llx) "
+				"pid=%u fd=%u",
+				(unsigned long long)event->mask,
+				event_set[test_num],
+				(unsigned)event->pid, event->fd);
 		} else if (event->pid != child_pid) {
 			tst_res(TFAIL,
-				 "get event: mask=%llx pid=%u "
-				 "(expected %u) fd=%u",
-				 (unsigned long long)event->mask,
-				 (unsigned)event->pid,
-				 (unsigned)child_pid,
-				 event->fd);
+				"get event: mask=%llx pid=%u "
+				"(expected %u) fd=%u",
+				(unsigned long long)event->mask,
+				(unsigned)event->pid,
+				(unsigned)child_pid,
+				event->fd);
 		} else {
 			tst_res(TPASS,
-				    "get event: mask=%llx pid=%u fd=%u",
-				    (unsigned long long)event->mask,
-				    (unsigned)event->pid, event->fd);
+				"get event: mask=%llx pid=%u fd=%u",
+				(unsigned long long)event->mask,
+				(unsigned)event->pid, event->fd);
 		}
 		/* Write response to permission event */
 		if (event_set[test_num] & FAN_ALL_PERM_EVENTS) {
@@ -243,7 +243,7 @@ void test01(void)
 	}
 	for (; test_num < TST_TOTAL - 1; test_num++) {
 		tst_res(TFAIL, "didn't get event: mask=%llx",
-			 event_set[test_num]);
+			event_set[test_num]);
 
 	}
 	check_child();
