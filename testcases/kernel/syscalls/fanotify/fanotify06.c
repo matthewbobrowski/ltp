@@ -83,8 +83,8 @@ static void create_fanotify_groups(void)
 	for (p = 0; p < FANOTIFY_PRIORITIES; p++) {
 		for (i = 0; i < GROUPS_PER_PRIO; i++) {
 			fd_notify[p][i] = SAFE_FANOTIFY_INIT(fanotify_prio[p] |
-							FAN_NONBLOCK,
-							O_RDONLY);
+							     FAN_NONBLOCK,
+							     O_RDONLY);
 
 			/* Add mount mark for each group */
 			ret = fanotify_mark(fd_notify[p][i],
@@ -93,9 +93,9 @@ static void create_fanotify_groups(void)
 					    AT_FDCWD, ".");
 			if (ret < 0) {
 				tst_brk(TBROK | TERRNO,
-					 "fanotify_mark(%d, FAN_MARK_ADD | "
-					 "FAN_MARK_MOUNT, FAN_MODIFY, AT_FDCWD,"
-					 " '.') failed", fd_notify[p][i]);
+					"fanotify_mark(%d, FAN_MARK_ADD | "
+					"FAN_MARK_MOUNT, FAN_MODIFY, AT_FDCWD,"
+					" '.') failed", fd_notify[p][i]);
 			}
 			/* Add ignore mark for groups with higher priority */
 			if (p == 0)
@@ -107,11 +107,11 @@ static void create_fanotify_groups(void)
 					    FAN_MODIFY, AT_FDCWD, fname);
 			if (ret < 0) {
 				tst_brk(TBROK | TERRNO,
-					 "fanotify_mark(%d, FAN_MARK_ADD | "
-					 "FAN_MARK_IGNORED_MASK | "
-					 "FAN_MARK_IGNORED_SURV_MODIFY, "
-					 "FAN_MODIFY, AT_FDCWD, %s) failed",
-					 fd_notify[p][i], fname);
+					"fanotify_mark(%d, FAN_MARK_ADD | "
+					"FAN_MARK_IGNORED_MASK | "
+					"FAN_MARK_IGNORED_SURV_MODIFY, "
+					"FAN_MODIFY, AT_FDCWD, %s) failed",
+					fd_notify[p][i], fname);
 			}
 		}
 	}
@@ -133,18 +133,18 @@ static void verify_event(int group, struct fanotify_event_metadata *event)
 {
 	if (event->mask != FAN_MODIFY) {
 		tst_res(TFAIL, "group %d get event: mask %llx (expected %llx) "
-			 "pid=%u fd=%u", group, (unsigned long long)event->mask,
-			 (unsigned long long)FAN_MODIFY,
-			 (unsigned)event->pid, event->fd);
+			"pid=%u fd=%u", group, (unsigned long long)event->mask,
+			(unsigned long long)FAN_MODIFY,
+			(unsigned)event->pid, event->fd);
 	} else if (event->pid != getpid()) {
 		tst_res(TFAIL, "group %d get event: mask %llx pid=%u "
-			 "(expected %u) fd=%u", group,
-			 (unsigned long long)event->mask, (unsigned)event->pid,
-			 (unsigned)getpid(), event->fd);
+			"(expected %u) fd=%u", group,
+			(unsigned long long)event->mask, (unsigned)event->pid,
+			(unsigned)getpid(), event->fd);
 	} else {
 		tst_res(TPASS, "group %d get event: mask %llx pid=%u fd=%u",
-			 group, (unsigned long long)event->mask,
-			 (unsigned)event->pid, event->fd);
+			group, (unsigned long long)event->mask,
+			(unsigned)event->pid, event->fd);
 	}
 }
 
@@ -167,22 +167,22 @@ void test01(void)
 		if (ret < 0) {
 			if (errno == EAGAIN) {
 				tst_res(TFAIL, "group %d did not get "
-					 "event", i);
+					"event", i);
 			}
 			tst_brk(TBROK | TERRNO,
-				 "reading fanotify events failed");
+				"reading fanotify events failed");
 		}
 		if (ret < (int)FAN_EVENT_METADATA_LEN) {
 			tst_brk(TBROK,
-				 "short read when reading fanotify "
-				 "events (%d < %d)", ret,
-				 (int)EVENT_BUF_LEN);
+				"short read when reading fanotify "
+				"events (%d < %d)", ret,
+				(int)EVENT_BUF_LEN);
 		}
 		event = (struct fanotify_event_metadata *)event_buf;
 		if (ret > (int)event->event_len) {
 			tst_res(TFAIL, "group %d got more than one "
-				 "event (%d > %d)", i, ret,
-				 event->event_len);
+				"event (%d > %d)", i, ret,
+				event->event_len);
 		} else {
 			verify_event(i, event);
 		}
@@ -194,18 +194,18 @@ void test01(void)
 			ret = read(fd_notify[p][i], event_buf, EVENT_BUF_LEN);
 			if (ret > 0) {
 				tst_res(TFAIL, "group %d got event",
-					 p*GROUPS_PER_PRIO + i);
+					p*GROUPS_PER_PRIO + i);
 				if (event->fd != FAN_NOFD)
 					SAFE_CLOSE(event->fd);
 			} else if (ret == 0) {
 				tst_brk(TBROK, "zero length "
-					 "read from fanotify fd");
+					"read from fanotify fd");
 			} else if (errno != EAGAIN) {
 				tst_brk(TBROK | TERRNO,
-					 "reading fanotify events failed");
+					"reading fanotify events failed");
 			} else {
 				tst_res(TPASS, "group %d got no event",
-					 p*GROUPS_PER_PRIO + i);
+					p*GROUPS_PER_PRIO + i);
 			}
 		}
 	}
