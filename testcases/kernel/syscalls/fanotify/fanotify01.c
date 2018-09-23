@@ -35,18 +35,27 @@
 static struct tcase {
 	const char *tname;
 	struct fanotify_mark_type mark;
+	unsigned int init_flags;
 } tcases[] = {
 	{
 		"inode mark events",
 		INIT_FANOTIFY_MARK_TYPE(INODE),
+		FAN_CLASS_NOTIF
 	},
 	{
 		"mount mark events",
 		INIT_FANOTIFY_MARK_TYPE(MOUNT),
+		FAN_CLASS_NOTIF
 	},
 	{
 		"filesystem mark events",
 		INIT_FANOTIFY_MARK_TYPE(FILESYSTEM),
+		FAN_CLASS_NOTIF
+	},
+	{
+		"inode mark unprivileged events",
+		INIT_FANOTIFY_MARK_TYPE(INODE),
+		FAN_CLASS_NOTIF|FAN_UNPRIVILEGED
 	},
 };
 
@@ -67,7 +76,18 @@ static void test_fanotify(unsigned int n)
 
 	tst_res(TINFO, "Test #%d: %s", n, tc->tname);
 
-	fd_notify = SAFE_FANOTIFY_INIT(FAN_CLASS_NOTIF, O_RDONLY);
+	fd_notify = fanotify_init(tc->init_flags, O_RDONLY);
+	if (fd_notify < 0) {
+		if (errno == EINVAL &&
+		    (tc->init_flags & FAN_UNPRIVILEGED)) {
+			tst_res(TCONF,
+				"FAN_UNPRIVILEGED not supported in kernel?");
+			return;
+		}
+		tst_brk(TBROK | TERRNO,
+			"fanotify_init (0x%x, O_RDONLY) "
+			"failed", tc->init_flags);
+	}
 
 	if (fanotify_mark(fd_notify, FAN_MARK_ADD | mark->flag,
 			  FAN_ACCESS | FAN_MODIFY | FAN_CLOSE | FAN_OPEN,
@@ -263,7 +283,8 @@ static void test_fanotify(unsigned int n)
 				(unsigned)getpid(),
 				event->fd);
 		} else {
-			if (event->fd == -2)
+			if (event->fd == -2 || (event->fd == FAN_NOFD &&
+			    (tc->init_flags & FAN_UNPRIVILEGED)))
 				goto pass;
 			ret = read(event->fd, buf, BUF_SIZE);
 			if (ret != (int)strlen(fname)) {
