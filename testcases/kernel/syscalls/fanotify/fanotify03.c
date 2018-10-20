@@ -34,56 +34,108 @@
 #define EVENT_BUF_LEN        (EVENT_MAX * EVENT_SIZE)
 
 #define BUF_SIZE 256
-#define TST_TOTAL 3
-
+#define TEST_APP "fanotify_child"
+#undef FAN_ALL_PERM_EVENTS
+#define FAN_ALL_PERM_EVENTS	(FAN_OPEN_PERM | FAN_OPEN_EXEC_PERM | \
+				 FAN_ACCESS_PERM)
 static char fname[BUF_SIZE];
 static char buf[BUF_SIZE];
 static volatile int fd_notify;
 
 static pid_t child_pid;
 
-static unsigned long long event_set[EVENT_MAX];
-static unsigned int event_resp[EVENT_MAX];
-
 static char event_buf[EVENT_BUF_LEN];
 static int support_perm_events;
 
 static struct tcase {
-	const char *tname;
-	struct fanotify_mark_type mark;
+	const char *tname;			/* Testcase name */
+	struct fanotify_mark_type mark;		/* Mark flags */
+	unsigned long long mask;		/* Event mask */
+	unsigned int resp_type;			/* Permission response type */
 } tcases[] = {
 	{
-		"inode mark permission events",
-		INIT_FANOTIFY_MARK_TYPE(INODE),
+		"inode mark type, FAN_OPEN_PERM event, FAN_ALLOW response",
+		INIT_FANOTIFY_MARK_TYPE(INODE), FAN_OPEN_PERM, FAN_ALLOW
 	},
 	{
-		"mount mark permission events",
-		INIT_FANOTIFY_MARK_TYPE(MOUNT),
+		"inode mark type, FAN_OPEN_PERM event, FAN_DENY response",
+		INIT_FANOTIFY_MARK_TYPE(INODE), FAN_OPEN_PERM, FAN_DENY
 	},
 	{
-		"filesystem mark permission events",
-		INIT_FANOTIFY_MARK_TYPE(FILESYSTEM),
+		"inode mark type, FAN_ACCESS_PERM event, FAN_ALLOW response",
+		INIT_FANOTIFY_MARK_TYPE(INODE), FAN_ACCESS_PERM, FAN_ALLOW
 	},
+	{
+		"inode mark type, FAN_ACCESS_PERM event, FAN_DENY response",
+		INIT_FANOTIFY_MARK_TYPE(INODE), FAN_ACCESS_PERM, FAN_DENY
+	},
+	{
+		"inode mark type, FAN_OPEN_EXEC_PERM event, FAN_ALLOW response",
+		INIT_FANOTIFY_MARK_TYPE(INODE), FAN_OPEN_EXEC_PERM, FAN_ALLOW
+	},
+	{
+		"inode mark type, FAN_OPEN_EXEC_PERM event, FAN_DENY response",
+		INIT_FANOTIFY_MARK_TYPE(INODE), FAN_OPEN_EXEC_PERM, FAN_DENY
+	},
+	{
+		"mount mark type, FAN_OPEN_PERM event, FAN_ALLOW response",
+		INIT_FANOTIFY_MARK_TYPE(MOUNT), FAN_OPEN_PERM, FAN_ALLOW
+	},
+	{
+		"mount mark type, FAN_OPEN_PERM event, FAN_DENY response",
+		INIT_FANOTIFY_MARK_TYPE(MOUNT), FAN_OPEN_PERM, FAN_DENY
+	},
+	{
+		"mount mark type, FAN_ACCESS_PERM event, FAN_ALLOW response",
+		INIT_FANOTIFY_MARK_TYPE(MOUNT), FAN_ACCESS_PERM, FAN_ALLOW
+	},
+	{
+		"mount mark type, FAN_ACCESS_PERM event, FAN_DENY response",
+		INIT_FANOTIFY_MARK_TYPE(MOUNT), FAN_ACCESS_PERM, FAN_DENY
+	},
+	{
+		"mount mark type, FAN_OPEN_EXEC_PERM event, FAN_ALLOW response",
+		INIT_FANOTIFY_MARK_TYPE(MOUNT), FAN_OPEN_EXEC_PERM, FAN_ALLOW
+	},
+	{
+		"mount mark type, FAN_OPEN_EXEC_PERM event, FAN_DENY response",
+		INIT_FANOTIFY_MARK_TYPE(MOUNT), FAN_OPEN_EXEC_PERM, FAN_DENY
+	},
+	{
+		"filesystem mark type, FAN_OPEN_PERM event, FAN_ALLOW response",
+		INIT_FANOTIFY_MARK_TYPE(FILESYSTEM), FAN_OPEN_PERM, FAN_ALLOW
+	},
+	{
+		"filesystem mark type, FAN_ACCESS_PERM event, FAN_ALLOW response",
+		INIT_FANOTIFY_MARK_TYPE(FILESYSTEM), FAN_ACCESS_PERM, FAN_ALLOW
+	}
 };
 
-static void generate_events(void)
+static int generate_events(void)
 {
-	int fd;
+	int fd, res = 0;
+	char *const argv[] = {TEST_APP, NULL};
 
 	/*
-	 * generate sequence of events
+	 * Generate sequence of events
 	 */
 	if ((fd = open(fname, O_RDWR | O_CREAT, 0700)) == -1)
-		exit(1);
+		res |= 1;
+
 	if (write(fd, fname, 1) == -1)
-		exit(2);
+		res |= 2;
 
 	lseek(fd, 0, SEEK_SET);
-	if (read(fd, buf, BUF_SIZE) != -1)
-		exit(3);
+	if (read(fd, buf, BUF_SIZE) == -1)
+		res |= 3;
+
+	if (execve(TEST_APP, argv, environ) == -1)
+		res |= 4;
 
 	if (close(fd) == -1)
-		exit(4);
+		res |= 5;
+
+	return res;
 }
 
 static void child_handler(int tmp)
@@ -114,27 +166,31 @@ static void run_child(void)
 	if (child_pid == 0) {
 		/* Child will generate events now */
 		close(fd_notify);
-		generate_events();
-		exit(0);
+		exit(generate_events());
 	}
 }
 
-static void check_child(void)
+static void check_child(unsigned int resp_type)
 {
 	struct sigaction child_action;
-	int child_ret;
+	int child_ret, res;
 
 	child_action.sa_handler = SIG_IGN;
 	sigemptyset(&child_action.sa_mask);
 	child_action.sa_flags = SA_NOCLDSTOP;
+
 	if (sigaction(SIGCHLD, &child_action, NULL) < 0) {
 		tst_brk(TBROK | TERRNO,
 			"sigaction(SIGCHLD, &child_action, NULL) failed");
 	}
+
 	SAFE_WAITPID(-1, &child_ret, 0);
 
-	if (WIFEXITED(child_ret) && WEXITSTATUS(child_ret) == 0)
-		tst_res(TPASS, "child exited correctly");
+	res = (resp_type == FAN_DENY) ? WEXITSTATUS(child_ret) : 0;
+
+	if (WIFEXITED(child_ret) && WEXITSTATUS(child_ret) == res)
+		tst_res(TPASS, "child exited correctly %s",
+				tst_strstatus(child_ret));
 	else
 		tst_res(TFAIL, "child %s", tst_strstatus(child_ret));
 }
@@ -146,8 +202,8 @@ static int setup_mark(unsigned int n)
 
 	fd_notify = SAFE_FANOTIFY_INIT(FAN_CLASS_CONTENT, O_RDONLY);
 
-	if (fanotify_mark(fd_notify, FAN_MARK_ADD | mark->flag,
-			  FAN_ACCESS_PERM | FAN_OPEN_PERM,
+	tst_res(TINFO, "Test #%d: %s", n, tc->tname);
+	if (fanotify_mark(fd_notify, FAN_MARK_ADD | mark->flag, tc->mask,
 			  AT_FDCWD, fname) < 0) {
 		if (errno == EINVAL && support_perm_events &&
 		    mark->flag == FAN_MARK_FILESYSTEM) {
@@ -155,9 +211,10 @@ static int setup_mark(unsigned int n)
 				"FAN_MARK_FILESYSTEM not supported in kernel?");
 			return -1;
 		} else if (errno == EINVAL) {
-			tst_brk(TCONF | TERRNO,
-				"CONFIG_FANOTIFY_ACCESS_PERMISSIONS not "
-				"configured in kernel?");
+			tst_res(TCONF | TERRNO,
+				"CONFIG_FANOTIFY_ACCESS_PERMISSION mark or "
+				"event type not configured in kernel?");
+			return -1;
 		} else {
 			tst_brk(TBROK | TERRNO,
 				"fanotify_mark (%d, FAN_MARK_ADD | %s, "
@@ -167,44 +224,57 @@ static int setup_mark(unsigned int n)
 		}
 	} else {
 		/*
-		 * To distigouish between perm event not supported and
+		 * To distinguish between perm event not supported and
 		 * filesystem mark not supported.
 		 */
 		support_perm_events = 1;
 	}
 
-	tst_res(TINFO, "Test #%d: %s", n, tc->tname);
+	if (fanotify_mark(fd_notify, FAN_MARK_ADD | mark->flag, tc->mask,
+			  AT_FDCWD, TEST_APP) < 0) {
+		if (errno == EINVAL && support_perm_events &&
+		    mark->flag == FAN_MARK_FILESYSTEM) {
+			tst_res(TCONF,
+				"FAN_MARK_FILESYSTEM not supported in kernel?");
+			return -1;
+		} else if (errno == EINVAL) {
+			tst_res(TCONF | TERRNO,
+				"CONFIG_FANOTIFY_ACCESS_PERMISSION mark or "
+				"event type not configured in kernel?");
+			return -1;
+		} else {
+			tst_brk(TBROK | TERRNO,
+				"fanotify_mark (%d, FAN_MARK_ADD | %s, "
+				"FAN_ACCESS_PERM | FAN_OPEN_PERM, "
+				"AT_FDCWD, %s) failed.",
+				fd_notify, mark->name, fname);
+		}
+	} else {
+		/*
+		 * To distinguish between perm event not supported and
+		 * filesystem mark not supported.
+		 */
+		support_perm_events = 1;
+	}
+
 	return 0;
 }
 
 static void test_fanotify(unsigned int n)
 {
-	int tst_count;
-	int ret, len = 0, i = 0, test_num = 0;
+	int ret, len = 0, i = 0;
+	struct tcase *tc = &tcases[n];
 
 	if (setup_mark(n) != 0)
 		return;
 
+	/* Generate events in a child process */
 	run_child();
 
-	tst_count = 0;
-
-	event_set[tst_count] = FAN_OPEN_PERM;
-	event_resp[tst_count++] = FAN_ALLOW;
-	event_set[tst_count] = FAN_ACCESS_PERM;
-	event_resp[tst_count++] = FAN_DENY;
-
-	/* tst_count + 1 is for checking child return value */
-	if (TST_TOTAL != tst_count + 1) {
-		tst_brk(TBROK,
-			"TST_TOTAL and tst_count do not match");
-	}
-	tst_count = 0;
-
 	/*
-	 * check events
+	 * Process events
 	 */
-	while (test_num < TST_TOTAL && fd_notify != -1) {
+	while (fd_notify != -1) {
 		struct fanotify_event_metadata *event;
 
 		if (i == len) {
@@ -222,12 +292,12 @@ static void test_fanotify(unsigned int n)
 		}
 
 		event = (struct fanotify_event_metadata *)&event_buf[i];
-		if (!(event->mask & event_set[test_num])) {
+		if (!(event->mask & tc->mask)) {
 			tst_res(TFAIL,
 				"got event: mask=%llx (expected %llx) "
 				"pid=%u fd=%d",
 				(unsigned long long)event->mask,
-				event_set[test_num],
+				tc->mask,
 				(unsigned)event->pid, event->fd);
 		} else if (event->pid != child_pid) {
 			tst_res(TFAIL,
@@ -243,30 +313,28 @@ static void test_fanotify(unsigned int n)
 				(unsigned long long)event->mask,
 				(unsigned)event->pid, event->fd);
 		}
+
 		/* Write response to permission event */
-		if (event_set[test_num] & FAN_ALL_PERM_EVENTS) {
+		if (tc->mask & FAN_ALL_PERM_EVENTS) {
 			struct fanotify_response resp;
 
 			resp.fd = event->fd;
-			resp.response = event_resp[test_num];
-			SAFE_WRITE(1, fd_notify, &resp,
-				   sizeof(resp));
+			resp.response = tc->resp_type;
+			SAFE_WRITE(1, fd_notify, &resp, sizeof(resp));
 		}
-		event->mask &= ~event_set[test_num];
+
+		event->mask &= ~tc->mask;
+
 		/* No events left in current mask? Go for next event */
 		if (event->mask == 0) {
 			i += event->event_len;
 			if (event->fd != FAN_NOFD)
 				SAFE_CLOSE(event->fd);
 		}
-		test_num++;
 	}
-	for (; test_num < TST_TOTAL - 1; test_num++) {
-		tst_res(TFAIL, "didn't get event: mask=%llx",
-			event_set[test_num]);
 
-	}
-	check_child();
+	/* Check to see whether child process terminated */
+	check_child(tc->resp_type);
 
 	if (fd_notify > 0)
 		SAFE_CLOSE(fd_notify);
@@ -284,14 +352,19 @@ static void cleanup(void)
 		SAFE_CLOSE(fd_notify);
 }
 
+static const char *const resource_files[] = {
+	TEST_APP,
+	NULL
+};
+
 static struct tst_test test = {
 	.test = test_fanotify,
 	.tcnt = ARRAY_SIZE(tcases),
 	.setup = setup,
 	.cleanup = cleanup,
-	.needs_tmpdir = 1,
 	.forks_child = 1,
-	.needs_root = 1
+	.needs_root = 1,
+	.resource_files = resource_files
 };
 
 #else
