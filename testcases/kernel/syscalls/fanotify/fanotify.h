@@ -57,9 +57,6 @@ static long fanotify_mark(int fd, unsigned int flags, uint64_t mask,
 #ifndef FAN_REPORT_TID
 #define FAN_REPORT_TID		0x00000100
 #endif
-#ifndef FAN_REPORT_FID
-#define FAN_REPORT_FID		0x00000200
-#endif
 
 #ifndef FAN_MARK_INODE
 #define FAN_MARK_INODE		0
@@ -88,6 +85,22 @@ struct fanotify_mark_type {
 	unsigned int flag;
 	const char * name;
 };
+
+#ifndef FAN_REPORT_FID
+#define FAN_REPORT_FID		0x00000200
+
+struct fanotify_event_info_header {
+	uint8_t info_type;
+	uint8_t pad;
+	uint16_t len;
+};
+
+struct fanotify_event_info_fid {
+	struct fanotify_event_info_header hdr;
+	__kernel_fsid_t fsid;
+	unsigned char handle[0];
+};
+#endif
 
 #define INIT_FANOTIFY_MARK_TYPE(t) \
 	{ FAN_MARK_ ## t, "FAN_MARK_" #t }
