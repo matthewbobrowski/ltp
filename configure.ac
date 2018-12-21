@@ -68,6 +68,7 @@ AC_CHECK_FUNCS([ \
     kcmp \
     mkdirat \
     mknodat \
+    name_to_handle_at \
     openat \
     preadv \
     preadv2 \
